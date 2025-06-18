@@ -48,4 +48,19 @@ cd llm-pdf-extractor/backend
 - Swagger/OpenAPI customization info
 - API test examples (with `httpie` or `curl`)
 
-I can append that too.
+
+---
+## Database Table Structure
+
+llm_db=# \dt
+               List of relations
+ Schema |        Name        | Type  |  Owner
+--------+--------------------+-------+----------
+ public | addresses          | table | llm_user
+ public | alembic_version    | table | llm_user
+ public | pdf_documents      | table | llm_user
+ public | pdfdocumenttaglink | table | llm_user
+ public | roles              | table | llm_user
+ public | tags               | table | llm_user
+ public | userrolelink       | table | llm_user
+ public | users              | table | llm_user
