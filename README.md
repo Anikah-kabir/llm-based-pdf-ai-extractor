@@ -64,3 +64,26 @@ llm_db=# \dt
  public | tags               | table | llm_user
  public | userrolelink       | table | llm_user
  public | users              | table | llm_user
+
+## Database pdf_documents table metadata
+ llm_db=# \d pdf_documents
+                        Table "public.pdf_documents"
+     Column     |           Type           | Collation | Nullable | Default
+----------------+--------------------------+-----------+----------+---------
+ id             | uuid                     |           | not null |
+ filename       | character varying        |           | not null |
+ upload_time    | timestamp with time zone |           | not null |
+ extracted_text | text                     |           |          |
+ meta           | text                     |           |          |
+ extracted_data | json                     |           |          |
+ llm_used       | character varying        |           |          |
+ prompt_used    | character varying        |           |          |
+ status         | character varying        |           | not null |
+ is_public      | boolean                  |           | not null |
+ address_id     | integer                  |           |          |
+ uploaded_by_id | uuid                     |           |          |
+Indexes:
+    "pdf_documents_pkey" PRIMARY KEY, btree (id)
+    "ix_pdf_documents_id" btree (id)
+Referenced by:
+    TABLE "pdfdocumenttaglink" CONSTRAINT "pdfdocumenttaglink_pdf_document_id_fkey" FOREIGN KEY (pdf_document_id) REFERENCES pdf_documents(id)
