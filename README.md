@@ -17,7 +17,18 @@ A microservices-based application to extract **structured data from PDF document
 - Docker support
 
 ---
+Process Flow:
+- User uploads PDF from the frontend.
+- FastAPI backend saves metadata and PDF content.
+- LLM Engine (Ollama) loads the local model (e.g., mistral:instruct).
+- We define a prompt template, such as:
+    ```bash
+	“Extract invoice number, customer name, and total amount from the following text: ...”
 
+- PDF text is sent to the LLM via a local Ollama API.
+- The model returns structured JSON (e.g., { "invoice_number": "1234", "amount": "$540.00" }).
+- FastAPI stores this data in the database (JSONB column).
+- Frontend displays it in a user-friendly format.
 
 ---
 
