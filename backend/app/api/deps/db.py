@@ -1,10 +1,7 @@
-# app/api/deps/db.py
+from sqlmodel import Session
+from app.db.session import engine
 
-from app.db.session import get_session
 
-def get_db():
-    db = get_session()
-    try:
-        yield db
-    finally:
-        db.close()
+def get_session():
+    with Session(engine) as session:
+        yield session
