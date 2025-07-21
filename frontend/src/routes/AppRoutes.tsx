@@ -12,6 +12,9 @@ import Home from '@/pages/Home';
 import Layout from '@/components/Layout';
 import Unauthorized from "@/pages/Unauthorized";
 import PdfUpload from "@/pages/PdfUpload";
+import PDFListPage from "@/pages/PDFListPage";
+import PDFDetails from "@/pages/PDFDetails";
+import PromptEditor from "@/components/PromptEditor";
 
 export default function AppRoutes() {
   return (
@@ -37,6 +40,30 @@ export default function AppRoutes() {
               element={
                 <Layout>
                   <PdfUpload />
+                </Layout>
+              } 
+            />
+            <Route 
+              path="/pdfs" 
+              element={
+                <Layout>
+                  <PDFListPage />
+                </Layout>
+              } 
+            />
+            <Route 
+              path="/pdfs/:id"
+              element={
+                <Layout>
+                  <PDFDetails  />
+                </Layout>
+              } 
+            />
+            <Route 
+              path="/prompt-engineer"
+              element={
+                <Layout>
+                  <PromptEditor  />
                 </Layout>
               } 
             />

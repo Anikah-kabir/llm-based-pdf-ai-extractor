@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     llm_db_name: str = Field(..., alias="LLM_DB_NAME")
     jwt_secret: str = Field(..., alias="JWT_SECRET")
     jwt_algorithm: str = Field("HS256", alias="JWT_ALGORITHM")
+    openai_api_key: str = Field(..., alias="OPENAI_API_KEY")
+    access_token_expire_minutes: str = Field(..., alias="ACCESS_TOKEN_EXPIRE_MINUTES")
 
     @property
     def database_url(self) -> str:

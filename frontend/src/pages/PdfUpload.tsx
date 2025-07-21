@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
-import http from '@/lib/http';
+import { useNavigate } from "react-router-dom";
+import { uploadPDF } from '@/api/pdfApi';
+
+import loaderImage from '@/assets/loader.gif'; // your loader image
 
 const PdfUpload: React.FC = () => {
+  const navigate = useNavigate();
+
   const [file, setFile] = useState<File | null>(null);
+  const [docType, setDocType] = useState("default");
+  const [goal, setGoal] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
@@ -13,29 +21,77 @@ const PdfUpload: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) return;
+    if (!file) {
+      setMessage("Please select a PDF file");
+      return;
+    }
 
-    const formData = new FormData();
-    formData.append("file", file);
-
+    setLoading(true);
     try {
-      const res = await http.post("/api/v1/pdf/upload-pdf", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
-      setMessage(res.data.msg + ": " + res.data.filename);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("doc_type", docType);
+      formData.append("goal", goal);
+      
+      const res = await uploadPDF(formData);
+      setMessage(`Upload successful: ${res.filename}`);
+      navigate("/pdfs");
     } catch (err: any) {
       setMessage(err.response?.data?.detail || "Upload failed");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="p-4">
+    <div className="p-6 bg-white rounded shadow max-w-lg mx-auto">
       <h2 className="text-xl font-bold mb-4">Upload PDF</h2>
-      <form onSubmit={handleSubmit}>
-        <input type="file" accept=".pdf" onChange={handleFileChange} />
-        <button type="submit" className="ml-2 px-4 py-2 bg-blue-600 text-white">Upload</button>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input
+          type="file"
+          accept=".pdf"
+          onChange={handleFileChange}
+          className="block w-full border rounded px-3 py-2"
+        />
+
+        <select
+          value={docType}
+          onChange={(e) => setDocType(e.target.value)}
+          className="block w-full border rounded px-3 py-2"
+        >
+          <option value="default">General</option>
+          <option value="medical">Medical</option>
+          <option value="invoice">Invoice</option>
+          <option value="resume">Resume</option>
+        </select>
+
+        <input
+          type="text"
+          placeholder="Enter goal (optional)"
+          value={goal}
+          onChange={(e) => setGoal(e.target.value)}
+          className="block w-full border rounded px-3 py-2"
+        />
+
+        <button
+          type="submit"
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          disabled={loading}
+        >
+          {loading ? "Uploading..." : "Upload"}
+        </button>
       </form>
-      {message && <p className="mt-4 text-green-600">{message}</p>}
+
+      {loading && (
+        <div className="flex justify-center mt-4">
+          <img src={loaderImage} alt="Uploading..." className="w-12 h-12" />
+        </div>
+      )}
+
+      {message && (
+        <p className="mt-4 text-green-700 font-medium">{message}</p>
+      )}
     </div>
   );
 };

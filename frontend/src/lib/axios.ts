@@ -1,9 +1,10 @@
 import axios from "axios";
 
 const api = axios.create({
-    baseURL: import.meta.env.API_URL || 'http://localhost:8000', 
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000', 
     withCredentials: true,
 });
+
 
 // Automatically attach token to every request
 api.interceptors.request.use((config) => {
@@ -29,7 +30,7 @@ api.interceptors.response.use(
       localStorage.removeItem("token");
 
       // Redirect to login page
-      //window.location.href = "/login";
+      window.location.href = "/login";
 
       return Promise.reject(error);
     }
@@ -38,7 +39,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const res = await api.get("/api/v1/auth/refresh-token");
+        const res = await api.get("/auth/refresh-token");
         const newToken = res.data.access_token;
         localStorage.setItem("token", newToken);
         api.defaults.headers.common["Authorization"] = `Bearer ${newToken}`;
@@ -47,7 +48,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         // Token refresh failed
         localStorage.removeItem("token");
-        //window.location.href = "/login";
+        window.location.href = "/login";
         return Promise.reject(refreshError);
       }
     }

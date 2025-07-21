@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 class PDFDocumentBase(SQLModel):
     filename: str = Field(sa_column=sa.Column(sa.String, nullable=False)) # Not null string
+    doc_type: str = Field(default="default", sa_column=sa.Column(sa.String, nullable=False))
     upload_time: datetime = Field(
         default_factory=datetime.utcnow,
         sa_column=sa.Column(sa.DateTime(timezone=True), nullable=False)
@@ -35,6 +36,7 @@ class PDFDocumentBase(SQLModel):
     extracted_data: Optional[dict] = Field(default=None, sa_column=sa.Column(sa.JSON, nullable=True))
     llm_used: Optional[str] = Field(default=None, sa_column=sa.Column(sa.String, nullable=True))
     prompt_used: Optional[str] = Field(default=None, sa_column=sa.Column(sa.String, nullable=True))
+    
     status: str = Field(
         default="pending",
         sa_column=sa.Column(sa.String, nullable=False)

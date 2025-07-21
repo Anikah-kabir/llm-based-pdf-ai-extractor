@@ -28,13 +28,13 @@ export interface LoginResponse {
 
 //Fetch Current Logged-in User
 export const fetchCurrentUser = async (): Promise<User> => {
-  const res = await http.get<User>("api/v1/auth/me");
+  const res = await http.get<User>("/auth/me");
   return res;
 };
 
 //Register User
 export const registerUser = async (data: RegisterPayload): Promise<{ msg: string }> => {
-  const res = await http.post<{ msg: string }>("api/v1/auth/register", data);
+  const res = await http.post<{ msg: string }>("/auth/register", data);
   return res;
 };
 
@@ -43,7 +43,7 @@ export const loginUser = async (username: string, password: string): Promise<Log
   const formData = new FormData();
   formData.append("username", username);
   formData.append("password", password);
-  const res = await http.post<LoginResponse>("api/v1/auth/login", formData);
+  const res = await http.post<LoginResponse>("/auth/login", formData);
   const token = res.access_token
   localStorage.setItem("token", token);
   api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
