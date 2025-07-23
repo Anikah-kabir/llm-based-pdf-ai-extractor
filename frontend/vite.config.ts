@@ -16,6 +16,10 @@ export default defineConfig({
     fs: {
       strict: false,
     },
+    host: true,
+    port: 5173,
+    open: true,
+    strictPort: true,
   },
   build: {
     outDir: 'dist',
