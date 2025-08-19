@@ -11,8 +11,6 @@ from sqlmodel import Session, select
 from app.core.config import get_settings
 
 settings = get_settings()
-# Secret key
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 class Token(BaseModel):
     access_token: str
@@ -32,7 +30,7 @@ oauth2_scheme = OAuth2PasswordBearer(
 # Create JWT token
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
     to_encode.update({"exp": expire})
     f"Token received: {settings.jwt_algorithm}"
     print(f"Token create: {jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)}")

@@ -18,13 +18,15 @@ def on_startup():
     init_llm_db()
 
 origins = [
+    "http://localhost:11434/v1",
+    "http://localhost:11434"
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,           # or ["*"] to allow all origins (not recommended in production)
+    allow_origins=["*"],           # or ["*"] to allow all origins (not recommended in production)
     allow_credentials=True,
     allow_methods=["*"],             # allow POST, GET, OPTIONS, etc.
     allow_headers=["*"],             # allow all headers

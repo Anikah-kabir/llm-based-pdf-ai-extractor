@@ -13,6 +13,16 @@ export interface PDFDetail {
   extracted_data: Record<string, any>; 
 }
 
+export interface PromptPayload {
+  text: string;
+  goal?: string;
+  doc_type?: string;
+}
+
+export interface PromptResponse {
+  response: string;
+}
+
 export const uploadPDF = async (formData: FormData) => {
   const res = await http.post("/pdfs/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },
@@ -39,9 +49,16 @@ export async function getPDFDetail(id: string): Promise<PDFDetail> {
   };
 }
 
-export async function generateAIResponse(data: { text: string; goal?: string; doc_type?: string }) {
-  // Assuming http.post takes (url, data, config) and automatically sets headers for JSON
-  const res = await http.post<{ response: string }>("/prompt/engineer", data);
 
-  return res; // contains { response: string }
+export async function generateAIResponse(data: PromptPayload): Promise<PromptResponse> {
+  try {
+    const res = await http.post<PromptResponse>("/prompt/engineer", data);
+    return res;
+  } catch (error: any) {
+    // Graceful error handling
+    if (error.response?.data?.detail) {
+      throw new Error(error.response.data.detail);
+    }
+    throw new Error("Failed to generate AI response");
+  }
 }

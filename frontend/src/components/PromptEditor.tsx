@@ -21,7 +21,14 @@ export default function PromptEditor() {
         doc_type: docType,
       });
 
-      setResponse(res.data?.response || "No response received.");
+      console.log("AI raw response:", res);
+
+      // Check if backend returned `response` field
+      if (res?.response) {
+        setResponse(res.response);
+      } else {
+        setResponse("No response received.");
+      }
     } catch (err: any) {
       setError(err?.message || "An error occurred.");
     } finally {
