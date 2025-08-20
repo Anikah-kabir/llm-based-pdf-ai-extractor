@@ -4,8 +4,13 @@ from typing import Optional, Dict, Any
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 from sqlmodel import SQLModel, Field
+from sqlalchemy import UniqueConstraint  # Add this import
 
 class PDFChunk(SQLModel, table=True):
+    __table_args__ = (
+        UniqueConstraint('pdf_id', 'chunk_num', name='unique_pdf_chunk'),
+    )
+    
     id: uuid.UUID = Field(
         default_factory=uuid.uuid4,
         primary_key=True,

@@ -12,9 +12,15 @@ const Navbar: React.FC = () => {
 
   return (
     <nav className="bg-blue-600 text-white px-6 py-4 shadow-md flex justify-between items-center">
+      {user ? (
+      <Link to="/dashboard" className="text-xl font-bold">
+        LLM PDF Extractor Dashboard
+      </Link>
+       ) : (
       <Link to="/" className="text-xl font-bold">
         LLM PDF
       </Link>
+      )}
       <div className="space-x-4 flex items-center">
         {user && (
           <>

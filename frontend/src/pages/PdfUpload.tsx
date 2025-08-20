@@ -8,8 +8,6 @@ const PdfUpload: React.FC = () => {
   const navigate = useNavigate();
 
   const [file, setFile] = useState<File | null>(null);
-  const [docType, setDocType] = useState("default");
-  const [goal, setGoal] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -30,9 +28,6 @@ const PdfUpload: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("doc_type", docType);
-      formData.append("goal", goal);
-      
       const res = await uploadPDF(formData);
       setMessage(`Upload successful: ${res.filename}`);
       navigate("/pdfs");
@@ -52,25 +47,6 @@ const PdfUpload: React.FC = () => {
           type="file"
           accept=".pdf"
           onChange={handleFileChange}
-          className="block w-full border rounded px-3 py-2"
-        />
-
-        <select
-          value={docType}
-          onChange={(e) => setDocType(e.target.value)}
-          className="block w-full border rounded px-3 py-2"
-        >
-          <option value="default">General</option>
-          <option value="medical">Medical</option>
-          <option value="invoice">Invoice</option>
-          <option value="resume">Resume</option>
-        </select>
-
-        <input
-          type="text"
-          placeholder="Enter goal (optional)"
-          value={goal}
-          onChange={(e) => setGoal(e.target.value)}
           className="block w-full border rounded px-3 py-2"
         />
 

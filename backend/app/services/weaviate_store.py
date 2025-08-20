@@ -29,7 +29,7 @@ def get_weaviate_client(max_retries: int = 3) -> weaviate.WeaviateClient:
             if settings.use_ollama:
                 additional_headers={
                     "X-Ollama-Api-Key": "ollama",
-                    "X-Ollama-Base-Url": settings.ollama_host
+                    "X-Ollama-Base-Url": settings.ollama_api_endpoint
                 }
             elif settings.openai_api_key:
                 additional_headers["X-OpenAI-Api-Key"]  = settings.openai_api_key
@@ -39,7 +39,6 @@ def get_weaviate_client(max_retries: int = 3) -> weaviate.WeaviateClient:
 
             #client_kwargs['use_grpc']=False
             client_kwargs['skip_init_checks']=True 
-            print(client_kwargs);
             if settings.weaviate_url.startswith("embedded:"):
                 client = weaviate.connect_to_local() 
             else:
@@ -66,42 +65,46 @@ def init_schema():
                     name=CLASS_NAME,
                     vector_config=Configure.Vectors.text2vec_ollama(
                         name="chunk_vector",
-                        source_properties=["chunk"],
+                        source_properties=["content"],
                         api_endpoint=settings.ollama_host,
-                        model=settings.ollama_model
+                        model=settings.ollama_model,
+                        vector_index_config=Configure.VectorIndex.hnsw(
+                            distance_metric=VectorDistances.COSINE
+                        )
                     ),
                     properties=[
-                        Property(name="chunk", data_type=DataType.TEXT),
                         Property(name="pdf_id", data_type=DataType.TEXT),
-                        Property(name="doc_type", data_type=DataType.TEXT),
                         Property(name="filename", data_type=DataType.TEXT),
+                        Property(name="doc_type", data_type=DataType.TEXT),
+                        Property(name="chunk_num", data_type=DataType.INT),
                         Property(name="page_no", data_type=DataType.INT),
+                        Property(name="content", data_type=DataType.TEXT),
+                        Property(name="metadata", data_type=DataType.OBJECT),  # For the nested dictionary
                     ],
-                    vector_index_config=Configure.VectorIndex.hnsw(
-                        distance_metric=VectorDistances.COSINE
-                    )
                 )
             else:
                 client.collections.create(
                     name=CLASS_NAME,
                     vector_config=Configure.Vectors.text2vec_openai(
                         name="chunk_vector",
-                        source_properties=["chunk"],
+                        source_properties=["content"],
                         model=settings.embedding_model,
                         dimensions=1024,
                         base_url="https://api.openai.com/v1",
-                        vectorize_collection_name=True
+                        vectorize_collection_name=True,
+                        vector_index_config=Configure.VectorIndex.hnsw(
+                            distance_metric=VectorDistances.COSINE
+                        )
                     ),
                     properties=[
-                        Property(name="chunk", data_type=DataType.TEXT),
                         Property(name="pdf_id", data_type=DataType.TEXT),
-                        Property(name="doc_type", data_type=DataType.TEXT),
                         Property(name="filename", data_type=DataType.TEXT),
+                        Property(name="doc_type", data_type=DataType.TEXT),
+                        Property(name="chunk_num", data_type=DataType.INT),
                         Property(name="page_no", data_type=DataType.INT),
+                        Property(name="content", data_type=DataType.TEXT),
+                        Property(name="chunk_meta", data_type=DataType.OBJECT),  # For the nested dictionary
                     ],
-                    vector_index_config=Configure.VectorIndex.hnsw(
-                        distance_metric=VectorDistances.COSINE
-                    )
                 )
     except WeaviateBaseError as e:
         print(f"Schema creation failed: {e.message}")
@@ -111,6 +114,8 @@ def init_schema():
 
 def store_pdf_in_weaviate(pdf_id: str, filename: str, chunks: List[Dict], doc_type: str):
     client = get_weaviate_client()
+    if client is None:
+        return
     coll = client.collections.get(CLASS_NAME)
     
     batch = []
@@ -122,7 +127,7 @@ def store_pdf_in_weaviate(pdf_id: str, filename: str, chunks: List[Dict], doc_ty
             "chunk_num": chunk["chunk_num"],
             "page_no": chunk["approx_page"],
             "content": chunk["content"],
-            "metadata": {
+            "chunk_meta": {
                 "char_count": chunk["char_count"],
                 "word_count": chunk["word_count"],
                 "has_tables": chunk["has_tables"],
@@ -134,12 +139,18 @@ def store_pdf_in_weaviate(pdf_id: str, filename: str, chunks: List[Dict], doc_ty
         
         # Insert in batches of 50
         if len(batch) >= 50:
-            coll.data.insert_many(batch)
-            batch = []
+            try:
+                coll.data.insert_many(batch)
+                batch = []
+            except Exception as e:
+                logging.error(f"Batch insert failed: {e}")
+                batch = []  # Reset batch
     
     if batch:
-        coll.data.insert_many(batch)
-    
+        try:
+            coll.data.insert_many(batch)
+        except Exception as e:
+            logging.error(f"Final batch insert failed: {e}")   
     client.close()
 
 def search_chunks(query: str, filters: list[tuple[str, str]] = None, limit: int = 6):
@@ -162,7 +173,7 @@ def search_chunks(query: str, filters: list[tuple[str, str]] = None, limit: int 
     res = coll.query.near_text(query=query, limit=limit, filters=where_filter)
     hits = [
         {
-            "chunk": o.properties.get("chunk"),
+            "content": o.properties.get("content"),
             "pdf_id": o.properties.get("pdf_id"),
             "doc_type": o.properties.get("doc_type"),
             "filename": o.properties.get("filename"),

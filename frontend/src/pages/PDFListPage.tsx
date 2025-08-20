@@ -39,6 +39,12 @@ export const PDFListPage = () => {
                   >
                     View Details
                   </Link>
+                  <Link
+                    to={`/pdfs/${pdf.id}/chunks`}
+                    className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-800"
+                  >
+                    Chunk Summary
+                  </Link>
                 </td>
               </tr>
             ))}

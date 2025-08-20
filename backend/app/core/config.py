@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     use_ollama: str = Field(..., alias="USE_OLLAMA")
     ollama_model: str = Field(..., alias="OLLAMA_MODEL")
     ollama_host: str = Field(..., alias="OLLAMA_HOST")
+    ollama_api_endpoint: str = Field(..., alias="OLLAMA_API_ENDPOINT")
+    #ollama_origins: str = Field(..., alias="OLLAMA_ORIGINS")
     llm_db_host: str = Field(..., alias="LLM_DB_HOST")
     llm_db_port: int = Field(..., alias="LLM_DB_PORT")
     llm_db_user: str = Field(..., alias="LLM_DB_USER")

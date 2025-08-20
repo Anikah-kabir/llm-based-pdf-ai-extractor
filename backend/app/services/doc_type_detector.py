@@ -12,7 +12,7 @@ CANONICAL_TYPES = {"medical", "invoice", "resume", "default"}
 
 if settings.use_ollama:
     client = OpenAI(
-        base_url=f"{settings.ollama_host}/v1/",
+        base_url=f"{settings.ollama_api_endpoint}/v1/",
         api_key="ollama"
     )
 else:

@@ -14,6 +14,7 @@ import Unauthorized from "@/pages/Unauthorized";
 import PdfUpload from "@/pages/PdfUpload";
 import PDFListPage from "@/pages/PDFListPage";
 import PDFDetails from "@/pages/PDFDetails";
+import ChunkSummary from "@/pages/ChunkDetailsPage";
 import PromptEditor from "@/components/PromptEditor";
 
 export default function AppRoutes() {
@@ -56,6 +57,14 @@ export default function AppRoutes() {
               element={
                 <Layout>
                   <PDFDetails  />
+                </Layout>
+              } 
+            />
+            <Route 
+              path="/pdfs/:id/chunks"
+              element={
+                <Layout>
+                  <ChunkSummary  />
                 </Layout>
               } 
             />

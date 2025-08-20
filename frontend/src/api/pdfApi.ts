@@ -10,7 +10,9 @@ export interface PDFFile {
 export interface PDFDetail {
   id: string;
   filename: string;
-  extracted_data: Record<string, any>; 
+  doc_type: string;
+  extracted_data: string | Record<string, any> | any[];
+  status: string;
 }
 
 export interface PromptPayload {
@@ -21,6 +23,20 @@ export interface PromptPayload {
 
 export interface PromptResponse {
   response: string;
+}
+
+export interface ChunkList {
+  filename: string;
+  chunk_count?: string;
+}
+export interface ChunkSummary {
+  id: string;
+  chunk_num: number;
+  page: number | null;
+  content: string;
+  char_count: number;
+  processed: boolean;
+  has_analysis: boolean;
 }
 
 export const uploadPDF = async (formData: FormData) => {
@@ -35,6 +51,16 @@ export const getPdfList = async (): Promise<PDFFile[]> => {
   return response; // <-- .data contains the actual payload
 };
 
+export const getChunks = async (): Promise<ChunkList[]> => {
+  const response = await http.get<ChunkList[]>("/chunks/");
+  return response; // <-- .data contains the actual payload
+};
+
+export async function getPDFChunks(pdfId: string): Promise<ChunkSummary[]> {
+  const response = await http.get<ChunkSummary[]>(`/pdfs/${pdfId}/chunks`);
+  return response;
+};
+
 export async function getPDFDetail(id: string): Promise<PDFDetail> {
   const res = await http.get<PDFDetail>(`/pdfs/${id}`);
 
@@ -45,7 +71,9 @@ export async function getPDFDetail(id: string): Promise<PDFDetail> {
   return {
     id: res.id,
     filename: res.filename,
+    doc_type: res.doc_type,
     extracted_data: parsed,
+    status: res.status,
   };
 }
 

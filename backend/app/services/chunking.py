@@ -115,3 +115,23 @@ def smart_chunk_text(text: str, page_start: int = 1) -> List[Dict]:
         chunk['approx_page'] = current_page
 
     return chunks
+
+
+def truncate_for_upload(pages: list[dict]) -> str:
+
+    text = "\n".join(pages)
+    
+    # Detect if text is corrupted (too many single-character lines)
+    lines = text.split('\n')
+    single_char_lines = sum(1 for line in lines if len(line.strip()) == 1)
+    
+    if single_char_lines > len(text) * 0.3:  # If >30% lines are single char
+        # Text is corrupted - fix it
+        text = text.replace('\n', '')  # Remove all newlines
+        text = re.sub(r'\s+', ' ', text)  # Normalize spaces
+    else:
+        # Text is normal, just clean up extra spaces
+        text = re.sub(r'\n{3,}', '\n\n', text)  # Normalize paragraph breaks
+        text = re.sub(r'[ \t]+', ' ', text)  # Normalize spaces
+    
+    return text[:settings.max_text_chars_upload]

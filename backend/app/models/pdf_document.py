@@ -1,9 +1,10 @@
 from __future__ import annotations
 from sqlmodel import SQLModel, Field, Relationship
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List, TYPE_CHECKING, Union, List, Dict, Any
 from datetime import datetime
 import uuid
 import sqlalchemy as sa
+from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from .address import Address
@@ -49,6 +50,13 @@ class PDFDocument(PDFDocumentBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
     #uploaded_by: Optional[User] = Relationship(back_populates="pdfdocuments")
 
+
+class PDFDetailResponse(BaseModel):
+    id: str
+    filename: str
+    doc_type: str
+    extracted_data: Union[str, Dict[str, Any], List[Dict[str, Any]]]
+    status: str
 
 class PDFDocumentPublic(PDFDocumentBase):
     id: int

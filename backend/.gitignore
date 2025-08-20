@@ -3,3 +3,5 @@ __pycache__/
 .venv/
 alembic/versions/*.pyc
 *.sqlite
+uploads/
+upload_pdfs/
