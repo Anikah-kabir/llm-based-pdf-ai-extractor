@@ -1,4 +1,4 @@
-# 🧠 DF Extraction & RAG Chat System
+# 🧠 PDF Extraction & RAG Chat System
 This project provides an **end-to-end system** for:
 - Uploading PDFs and extracting structured data using **LLM Prompt Engineering**
 - Automatic **document type & goal detection**
