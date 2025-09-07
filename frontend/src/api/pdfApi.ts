@@ -39,6 +39,14 @@ export interface ChunkSummary {
   has_analysis: boolean;
 }
 
+export async function ragQuery(question: string, docType: string = "default") {
+  const res = await http.post<{ result: string }>("/rag/query", {
+    question,
+    doc_type: docType,
+  });
+  return res.result;
+}
+
 export const uploadPDF = async (formData: FormData) => {
   const res = await http.post("/pdfs/upload", formData, {
     headers: { "Content-Type": "multipart/form-data" },

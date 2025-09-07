@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
 class Settings(BaseSettings):
-    use_ollama: str = Field(..., alias="USE_OLLAMA")
+    use_ollama: bool = Field(..., alias="USE_OLLAMA")
     ollama_model: str = Field(..., alias="OLLAMA_MODEL")
     ollama_host: str = Field(..., alias="OLLAMA_HOST")
     ollama_api_endpoint: str = Field(..., alias="OLLAMA_API_ENDPOINT")

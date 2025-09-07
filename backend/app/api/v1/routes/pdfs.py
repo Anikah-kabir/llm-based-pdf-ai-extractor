@@ -18,6 +18,7 @@ from sqlalchemy import update
 import re, json
 import logging
 from datetime import datetime
+from contextlib import contextmanager
 
 settings = get_settings()
 router = APIRouter()
@@ -65,7 +66,6 @@ async def get_pdf_detail(id: uuid.UUID, session: Session = Depends(get_session),
     }
     return PDFDetailResponse(**cleaned_data)
     
-
 @router.post("/rag/query")
 async def rag_query(
     question: str,
@@ -75,21 +75,37 @@ async def rag_query(
     filters = []
 
     if pdf_id:
-        pdf_doc = session.exec(
-            select(PDFDocument).where(PDFDocument.id == pdf_id)
-        ).first()
-        if not pdf_doc:
-            raise HTTPException(status_code=404, detail="PDF not found")
-        filters.append(("doc_type", pdf_doc.doc_type))
-        filters.append(("pdf_id", str(pdf_doc.id)))
+        try:
+            pdf_doc = session.exec(
+                select(PDFDocument).where(PDFDocument.id == pdf_id)
+            ).first()
+            if pdf_doc:
+                filters.append(("doc_type", pdf_doc.doc_type))
+                filters.append(("pdf_id", str(pdf_doc.id)))
+        except Exception as e:
+            logging.error(f"Error fetching PDF document: {e}")
+            # Continue without filters if there's an error
 
-    hits = search_chunks(question, filters=filters, limit=6)
+    try:
+        hits = search_chunks(question, filters=filters, limit=6)
+    except Exception as search_error:
+        logging.error(f"Search failed: {search_error}")
+        hits = []
+
     if not hits:
-        return {"result": {"answer": "No relevant information found", "source": None, "confidence": 0.0}}
+        return {
+            "result": {
+                "answer": "No relevant information found in the knowledge base.",
+                "source": None,
+                "confidence": 0.0
+            },
+            "retrieved_chunks": []
+        }
 
-    contexts = [f"[Source: {h['filename']}, page {h['page_no']}] {h['chunk']}" for h in hits]
+    try:
+        contexts = [f"[Source: {h['filename']}, page {h.get('page_no', 'N/A')}] {h['content']}" for h in hits]
 
-    structured_prompt = f"""
+        structured_prompt = f"""
 Answer the question strictly using the provided context. 
 Return JSON with: answer, source, confidence (0 to 1).
 
@@ -99,16 +115,27 @@ Context:
 Question: {question}
 JSON:
 """
-    llm_output = generate_llm_response(structured_prompt)
-
-    return {
-        "result": llm_output,
-        "retrieved_chunks": hits
-    }
+        llm_output = generate_llm_response(structured_prompt)
+        
+        return {
+            "result": llm_output,
+            "retrieved_chunks": hits
+        }
+        
+    except Exception as e:
+        logging.error(f"LLM processing failed: {e}")
+        return {
+            "result": {
+                "answer": "Error processing your query. Please try again.",
+                "source": None,
+                "confidence": 0.0
+            },
+            "retrieved_chunks": hits
+        }
 
 @router.get("/{pdf_id}/chunks", response_model=List[Dict])
 def get_pdf_chunks(
-    pdf_id: str,
+    pdf_id: uuid.UUID,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_session)
@@ -151,7 +178,7 @@ async def upload_and_index_pdf(
     if not doc_type:
         doc_type, detection_reason = detect_doc_type(full_text)
     
-    #init_schema()
+    init_schema()
 
     # # Process first 3 chunks in parallel for quick response
     enhanced_chunks = []
@@ -205,14 +232,13 @@ async def upload_and_index_pdf(
 
         logging.info(f"Processing {len(initial_chunks)} initial chunks")
 
-        # Store in Weaviate
-        # try:
-        #     store_pdf_in_weaviate(str(pdf_doc.id), file.filename, enhanced_chunks, doc_type)
-        #     logging.info("Successfully stored in Weaviate")
-        # except Exception as weaviate_error:
-        #     logging.error(f"Weaviate storage failed: {weaviate_error}")
-        #     raise HTTPException(500, f"Weaviate storage failed: {weaviate_error}")
-            # Continue with other operations
+        #Store in Weaviate
+        try:
+            store_pdf_in_weaviate(str(pdf_doc.id), file.filename, enhanced_chunks, doc_type)
+            logging.info("Successfully stored in Weaviate")
+        except Exception as weaviate_error:
+            logging.error(f"Weaviate storage failed: {weaviate_error}")
+            raise HTTPException(500, f"Weaviate storage failed: {weaviate_error}")
 
         # Store in PostgreSQL
         logging.info("Chunk stored in PostgreSQL")
@@ -258,47 +284,74 @@ async def upload_and_index_pdf(
         "detection": detection_reason,
         "status": "processing" if len(chunks) > 3 else "processed"
     }
+
+
+@contextmanager
+def get_db_session():
+    """Get database session with context manager"""
+    db = next(get_session())
+    try:
+        yield db
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
 async def process_remaining_chunks(
     pdf_id: str, 
     chunks: List[Dict], 
     doc_type: str, 
     filename: str,
-    db: Session = Depends(get_session)
 ):
-    all_processed_chunks = []
-    
-    for i in range(0, len(chunks), 5):  # Process in batches of 5
-        batch = chunks[i:i+5]
-        # Process entire batch in parallel
+    with get_db_session() as db:
         try:
-            processed_batch = await process_batch_parallel(batch, doc_type)
-            all_processed_chunks.extend(processed_batch)
-        except Exception as batch_error:
-            logging.error(f"Batch processing failed: {batch_error}")
-            # Fallback: process failed chunks individually
-            for chunk in batch:
-                try:
-                    processed = await process_chunk_with_llm(chunk, doc_type)
-                    all_processed_chunks.append(processed)
-                except Exception as e:
-                    all_processed_chunks.append({
-                        **chunk,
-                        "processed": False,
-                        "llm_error": str(e)
-                    })
-        
-        await asyncio.sleep(0.5) 
-        # Store in both databases
-
-        #store_pdf_in_weaviate(pdf_id, filename, processed_batch, doc_type)
-        try:
-            upsert_pdf_chunks(db, [{
-                **chunk,
-                "pdf_id": pdf_id,
-                "filename": filename,
-                "doc_type": doc_type
-            } for chunk in all_processed_chunks])
+            all_processed_chunks = []
             
+            for i in range(0, len(chunks), 5):  # Process in batches of 5
+                batch = chunks[i:i+5]
+                # Process entire batch in parallel
+                try:
+                    processed_batch = await process_batch_parallel(batch, doc_type)
+                    all_processed_chunks.extend(processed_batch)
+                except Exception as batch_error:
+                    logging.error(f"Batch processing failed: {batch_error}")
+                    # Fallback: process failed chunks individually
+                    for chunk in batch:
+                        try:
+                            processed = await process_chunk_with_llm(chunk, doc_type)
+                            all_processed_chunks.append(processed)
+                        except Exception as e:
+                            all_processed_chunks.append({
+                                **chunk,
+                                "processed": False,
+                                "llm_error": str(e)
+                            })
+                
+                await asyncio.sleep(0.5) 
+                # Store in both databases
+
+                store_pdf_in_weaviate(pdf_id, filename, processed_batch, doc_type)
+                try:
+                    upsert_pdf_chunks(db, [{
+                        **chunk,
+                        "pdf_id": pdf_id,
+                        "filename": filename,
+                        "doc_type": doc_type
+                    } for chunk in all_processed_chunks])
+                    
+                    # Update main document status
+                    db.execute(
+                        update(PDFDocument)
+                        .where(PDFDocument.id == pdf_id)
+                        .values(status="processed")
+                    )
+                    db.commit()
+                    
+                except Exception as e:
+                    db.rollback()
+                    logging.error(f"Failed to store processed chunks: {e}")
+                    raise
             # Update main document status
             db.execute(
                 update(PDFDocument)
@@ -306,19 +359,15 @@ async def process_remaining_chunks(
                 .values(status="processed")
             )
             db.commit()
-            
         except Exception as e:
             db.rollback()
-            logging.error(f"Failed to store processed chunks: {e}")
-            raise
-    # Update main document status
-    db.execute(
-        update(PDFDocument)
-        .where(PDFDocument.id == pdf_id)
-        .values(status="processed")
-    )
-    db.commit()
-    db.close()
+            db.execute(
+                update(PDFDocument)
+                .where(PDFDocument.id == pdf_id)
+                .values(status="failed", error=str(e))
+            )
+            db.commit()
+            logging.error(f"Background task failed: {e}")
 
 def upsert_pdf_chunks(db: Session, chunks: List[Dict]):
     """Bulk upsert chunks with conflict handling - optimized"""

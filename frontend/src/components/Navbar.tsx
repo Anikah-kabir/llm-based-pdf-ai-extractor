@@ -27,7 +27,7 @@ const Navbar: React.FC = () => {
             <Link to="/upload-pdf" className="hover:underline">
               Upload PDF
             </Link>
-            <Link to="/prompt-engineer" style={{ marginLeft: "20px" }}>Prompt Engineering</Link>
+            <Link to="/chat" style={{ marginLeft: "20px" }}>Chat</Link>
             <Link to="/pdfs" style={{ marginLeft: "20px" }}>All Pdfs</Link>
           </>
         )}

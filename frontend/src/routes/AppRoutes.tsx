@@ -16,6 +16,7 @@ import PDFListPage from "@/pages/PDFListPage";
 import PDFDetails from "@/pages/PDFDetails";
 import ChunkSummary from "@/pages/ChunkDetailsPage";
 import PromptEditor from "@/components/PromptEditor";
+import RAGChat from "@/pages/RAGChat";
 
 export default function AppRoutes() {
   return (
@@ -73,6 +74,14 @@ export default function AppRoutes() {
               element={
                 <Layout>
                   <PromptEditor  />
+                </Layout>
+              } 
+            />
+            <Route 
+              path="/chat"
+              element={
+                <Layout>
+                  <RAGChat  />
                 </Layout>
               } 
             />

@@ -16,33 +16,17 @@ logger = logging.getLogger(__name__)
 def get_weaviate_client(max_retries: int = 3) -> weaviate.WeaviateClient:
     for attempt in range(max_retries):
         try:
-            client_kwargs = {}
-            if settings.weaviate_url.startswith("embedded:"):
-                client_kwargs["url"] = settings.weaviate_url
-            else:
-                client_kwargs["cluster_url"] = settings.weaviate_url
-
-            if settings.weaviate_api_key:
-                client_kwargs["auth_credentials"] = Auth.api_key(settings.weaviate_api_key)
             
-            additional_headers = {}
-            if settings.use_ollama:
-                additional_headers={
-                    "X-Ollama-Api-Key": "ollama",
-                    "X-Ollama-Base-Url": settings.ollama_api_endpoint
-                }
-            elif settings.openai_api_key:
-                additional_headers["X-OpenAI-Api-Key"]  = settings.openai_api_key
-
-            if additional_headers:
-                client_kwargs["headers"] = additional_headers
-
-            #client_kwargs['use_grpc']=False
-            client_kwargs['skip_init_checks']=True 
-            if settings.weaviate_url.startswith("embedded:"):
-                client = weaviate.connect_to_local() 
-            else:
-                client = weaviate.connect_to_weaviate_cloud(**client_kwargs)
+            headers = {
+                "X-OpenAI-Api-Key":settings.openai_api_key
+            }
+            client = weaviate.connect_to_local(
+                #auth_credentials=Auth.api_key(settings.weaviate_api_key),
+                host="weaviate", 
+                grpc_port=50051, 
+                port=8080, 
+                headers= headers
+                ) 
 
             if client.is_ready():
                 logger.info("Successfully connected to Weaviate")
@@ -79,7 +63,18 @@ def init_schema():
                         Property(name="chunk_num", data_type=DataType.INT),
                         Property(name="page_no", data_type=DataType.INT),
                         Property(name="content", data_type=DataType.TEXT),
-                        Property(name="metadata", data_type=DataType.OBJECT),  # For the nested dictionary
+                        Property(
+                            name="chunk_meta",
+                            data_type=DataType.OBJECT,
+                            nested_properties=[
+                                Property(name="char_count", data_type=DataType.INT),
+                                Property(name="word_count", data_type=DataType.INT),
+                                Property(name="has_tables", data_type=DataType.BOOL),
+                                Property(name="has_figures", data_type=DataType.BOOL),
+                                Property(name="llm_analysis", data_type=DataType.TEXT),
+                                Property(name="processed", data_type=DataType.BOOL),
+                            ],
+                        ),
                     ],
                 )
             else:
@@ -89,7 +84,7 @@ def init_schema():
                         name="chunk_vector",
                         source_properties=["content"],
                         model=settings.embedding_model,
-                        dimensions=1024,
+                        dimensions=1536,
                         base_url="https://api.openai.com/v1",
                         vectorize_collection_name=True,
                         vector_index_config=Configure.VectorIndex.hnsw(
@@ -103,7 +98,18 @@ def init_schema():
                         Property(name="chunk_num", data_type=DataType.INT),
                         Property(name="page_no", data_type=DataType.INT),
                         Property(name="content", data_type=DataType.TEXT),
-                        Property(name="chunk_meta", data_type=DataType.OBJECT),  # For the nested dictionary
+                        Property(
+                            name="chunk_meta",
+                            data_type=DataType.OBJECT,
+                            nested_properties=[
+                                Property(name="char_count", data_type=DataType.INT),
+                                Property(name="word_count", data_type=DataType.INT),
+                                Property(name="has_tables", data_type=DataType.BOOL),
+                                Property(name="has_figures", data_type=DataType.BOOL),
+                                Property(name="llm_analysis", data_type=DataType.TEXT),
+                                Property(name="processed", data_type=DataType.BOOL),
+                            ],
+                        ),
                     ],
                 )
     except WeaviateBaseError as e:
@@ -152,36 +158,90 @@ def store_pdf_in_weaviate(pdf_id: str, filename: str, chunks: List[Dict], doc_ty
         except Exception as e:
             logging.error(f"Final batch insert failed: {e}")   
     client.close()
-
+    
 def search_chunks(query: str, filters: list[tuple[str, str]] = None, limit: int = 6):
     import weaviate
+    from weaviate.classes.query import Filter
+    from weaviate.exceptions import WeaviateQueryError
+    import logging
+    
     client = get_weaviate_client()
     coll = client.collections.get(CLASS_NAME)
 
     where_filter = None
     if filters:
-        from weaviate.classes.query import Filter
-        f_objs = []
-        for key, val in filters:
-            f_objs.append(Filter.by_property(key).equal(val))
-        if len(f_objs) > 1:
-            from functools import reduce
-            where_filter = reduce(lambda a, b: a & b, f_objs)
-        else:
-            where_filter = f_objs[0]
+        try:
+            # Build filter using AND condition for all filters
+            filter_conditions = []
+            for key, val in filters:
+                filter_conditions.append(Filter.by_property(key).equal(val))
+            
+            if filter_conditions:
+                # Combine all filters with AND
+                where_filter = Filter.all_of(*filter_conditions)
+                
+        except Exception as e:
+            logging.error(f"Error building Weaviate filter: {e}")
+            # Fallback: use first filter only
+            if filter_conditions:
+                where_filter = filter_conditions[0]
 
-    res = coll.query.near_text(query=query, limit=limit, filters=where_filter)
-    hits = [
-        {
-            "content": o.properties.get("content"),
-            "pdf_id": o.properties.get("pdf_id"),
-            "doc_type": o.properties.get("doc_type"),
-            "filename": o.properties.get("filename"),
-            "page_no": o.properties.get("page_no")
-        }
-        for o in res.objects
-    ]
-    client.close()
-    return hits
+    try:
+        # Use HTTP instead of GRPC if GRPC is having issues
+        # res = coll.query.near_text(query=query, limit=limit, filters=where_filter)
+        
+        # Alternative: Use hybrid search which might be more stable
+        res = coll.query.hybrid(
+            query=query,
+            limit=limit,
+            filters=where_filter,
+            alpha=0.75  # Balance between keyword and vector search
+        )
+        
+        hits = [
+            {
+                "content": o.properties.get("content"),
+                "pdf_id": o.properties.get("pdf_id"),
+                "doc_type": o.properties.get("doc_type"),
+                "filename": o.properties.get("filename"),
+                "page_no": o.properties.get("page_no"),
+                "score": o.metadata.score if hasattr(o, 'metadata') else None
+            }
+            for o in res.objects
+        ]
+        return hits
+        
+    except WeaviateQueryError as e:
+        logging.error(f"Weaviate query error: {e}")
+        # Fallback to simple text search
+        try:
+            res = coll.query.bm25(
+                query=query,
+                limit=limit,
+                filters=where_filter
+            )
+            hits = [
+                {
+                    "content": o.properties.get("content"),
+                    "pdf_id": o.properties.get("pdf_id"),
+                    "doc_type": o.properties.get("doc_type"),
+                    "filename": o.properties.get("filename"),
+                    "page_no": o.properties.get("page_no"),
+                    "score": o.metadata.score if hasattr(o, 'metadata') else None
+                }
+                for o in res.objects
+            ]
+            return hits
+        except Exception as fallback_error:
+            logging.error(f"Fallback search also failed: {fallback_error}")
+            return []
+    except Exception as e:
+        logging.error(f"Unexpected error in search: {e}")
+        return []
+    finally:
+        try:
+            client.close()
+        except:
+            pass
 
 
