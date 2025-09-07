@@ -1,34 +1,27 @@
-# 🧠 LLM PDF Extractor
-
-A microservices-based application to extract **structured data from PDF documents** using **Local Large Language Models (LLMs)**. Built with **FastAPI**, **SQLModel**, and **PostgreSQL**, styled with TailwindCSS.
+# 🧠 PDF Extraction & RAG Chat System
+This project provides an **end-to-end system** for:
+- Uploading PDFs and extracting structured data using **LLM Prompt Engineering**
+- Automatic **document type & goal detection**
+- Storing document chunks in **Weaviate vector database**
+- Querying documents using **RAG (Retrieval-Augmented Generation)**
+- Frontend React UI for **PDF Upload**, **Prompt Playground**, and **Chat-based RAG search**
 
 ---
 
 ## Features
 
-- Upload PDFs and extract structured data
-- Local LLM-based extraction & intelligent tagging (Ollama compatible)
-- JWT & Role-based Access Control (RBAC)
-- Multi-tenant support
-- Many-to-many tagging system (PDFs ↔ Tags)
-- REST APIs using FastAPI
-- Modular microservices
-- TailwindCSS frontend
-- Docker support
+### Backend (FastAPI)
+- Upload PDF (`/pdfs/upload`)
+- Extract text and structured data
+- Auto-detect goal (medical, invoice, resume, general)
+- Store PDF data in **PostgreSQL**
+- Index document chunks in **Weaviate**
+- Query knowledge base using RAG (`/rag/query`)
 
----
-Process Flow:
-- User uploads PDF from the frontend.
-- FastAPI backend saves metadata and PDF content.
-- LLM Engine (Ollama) loads the local model (e.g., mistral:instruct).
-- We define a prompt template, such as:
-    ```bash
-	“Extract invoice number, customer name, and total amount from the following text: ...”
-
-- PDF text is sent to the LLM via a local Ollama API.
-- The model returns structured JSON (e.g., { "invoice_number": "1234", "amount": "$540.00" }).
-- FastAPI stores this data in the database (JSONB column).
-- Frontend displays it in a user-friendly format.
+### Frontend (React)
+- **PDF Upload Page** → Upload PDFs, set document type & goal
+- **Prompt Playground** → Test prompt engineering interactively
+- **RAG Chat Assistant** → Conversational retrieval across uploaded PDFs
 
 ---
 
